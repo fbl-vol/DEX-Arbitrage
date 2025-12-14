@@ -3,9 +3,16 @@
 DEX Arbitrage Simulation Script
 Simulates arbitrage opportunities between two Uniswap V2-style AMM pools.
 Read-only, no transaction execution.
+
+Usage:
+    python simulate.py          # Run with real on-chain data
+    python simulate.py --demo   # Run with mock data (no RPC needed)
 """
 
 import json
+import csv
+import os
+from datetime import datetime
 from decimal import Decimal, getcontext
 from typing import Tuple, Optional
 import sys
@@ -26,6 +33,7 @@ getcontext().prec = 50
 # ============================================================================
 
 # Demo mode - set to True to run with mock data (no RPC connection needed)
+# Can also be enabled via command line with: python simulate.py --demo
 DEMO_MODE = False
 
 # RPC endpoint (public Arbitrum RPC)
@@ -143,12 +151,16 @@ def get_pool_reserves(
     token_a_checksum = Web3.to_checksum_address(token_a)
     token_b_checksum = Web3.to_checksum_address(token_b)
     
-    if token0.lower() == token_a_checksum.lower():
+    # Verify the pool contains the expected tokens
+    if token0.lower() == token_a_checksum.lower() and token1.lower() == token_b_checksum.lower():
         reserve_a, reserve_b = reserve0, reserve1
-    elif token1.lower() == token_a_checksum.lower():
+    elif token1.lower() == token_a_checksum.lower() and token0.lower() == token_b_checksum.lower():
         reserve_a, reserve_b = reserve1, reserve0
     else:
-        raise ValueError(f"Token {token_a} not found in pool {pool_address}")
+        raise ValueError(
+            f"Pool {pool_address} does not contain the expected token pair. "
+            f"Expected: {token_a} and {token_b}, Found: {token0} and {token1}"
+        )
     
     return reserve_a, reserve_b, block_number
 
@@ -381,10 +393,6 @@ def save_to_csv(
     """
     Save results to CSV file (optional feature).
     """
-    import csv
-    import os
-    from datetime import datetime
-    
     file_exists = os.path.isfile(CSV_OUTPUT_FILE)
     
     with open(CSV_OUTPUT_FILE, 'a', newline='') as f:
@@ -420,8 +428,11 @@ def main():
     """
     Main execution function.
     """
+    # Check for command-line arguments
+    demo_mode = DEMO_MODE or "--demo" in sys.argv
+    
     try:
-        if DEMO_MODE:
+        if demo_mode:
             print("Running in DEMO MODE with mock data...")
             print("(Set DEMO_MODE = False to use real on-chain data)")
             
