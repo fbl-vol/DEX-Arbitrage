@@ -32,9 +32,16 @@ cd DEX-Arbitrage
 pip install -r requirements.txt
 ```
 
+## Quick Start
+
+Try the demo mode first (no RPC connection needed):
+```bash
+python simulate.py --demo
+```
+
 ## Usage
 
-Run the simulation script:
+Run the simulation script with real on-chain data:
 ```bash
 python simulate.py
 ```
