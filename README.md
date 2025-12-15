@@ -79,12 +79,38 @@ MAX_INPUT_AMOUNT = 10.0
 SWEEP_STEPS = 100
 ```
 
+### Finding Pool Addresses
+
+To find Uniswap V2-style pools on Arbitrum with the same token pair:
+
+**Option 1: Use DEX Analytics Sites**
+- [Sushiswap Analytics](https://analytics.sushi.com/arbitrum/pairs) - Find Sushiswap V2 pools
+- [DexScreener](https://dexscreener.com/arbitrum) - Search across multiple DEXes
+- Look for pairs with same tokens (e.g., WETH/USDC) on different platforms
+
+**Option 2: On-Chain Exploration**
+- Use factory contracts to find pair addresses:
+  - Sushiswap Factory: `0xc35DADB65012eC5796536bD9864eD8773aBc74C4`
+  - Call `getPair(token0, token1)` to get pool address
+- Verify the pool has `getReserves()` method (Uniswap V2 interface)
+
+**Common V2-style DEXes on Arbitrum:**
+- Sushiswap (V2 pools)
+- Camelot (V2-style)
+- Solidly forks
+
+**Important Notes:**
+- Both pools must have the **same token pair** (e.g., WETH/USDC)
+- Both pools must implement the **Uniswap V2 interface** (`getReserves()`, `token0()`, `token1()`)
+- For real arbitrage, use pools from **different DEXes** (price differences unlikely on same DEX)
+
 ### Modifying Pair Addresses
 
 To analyze different token pairs:
 1. Update `POOL_1_ADDRESS` and `POOL_2_ADDRESS` with your target pools
 2. Update `TOKEN_A_ADDRESS` and `TOKEN_B_ADDRESS` with the token addresses
 3. Update `TOKEN_A_DECIMALS` and `TOKEN_B_DECIMALS` accordingly
+4. Verify both pools support `getReserves()` by testing in demo mode first
 
 ### Optional Features
 

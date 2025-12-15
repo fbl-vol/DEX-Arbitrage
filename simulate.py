@@ -39,15 +39,23 @@ DEMO_MODE = False
 # RPC endpoint (public Arbitrum RPC)
 RPC_URL = "https://arb1.arbitrum.io/rpc"
 
-# Pool addresses (example: WETH/USDC pools on Arbitrum)
-# Pool 1: Uniswap V2 style pool
-POOL_1_ADDRESS = "0x905dfCD5649217c42684f23958568e533C711Aa3"  # Example pool
-# Pool 2: Another DEX pool with same token pair
-POOL_2_ADDRESS = "0x8e295789c9465487074a65b1ae9Ce0351172393f"  # Example pool
+# Pool addresses - WETH/USDC pairs on Arbitrum
+# These are Sushiswap V2-style pools that both support getReserves()
+# 
+# Finding V2-style pools with same pair:
+# - Sushiswap Analytics: https://analytics.sushi.com/arbitrum/pairs
+# - Look for pairs with same tokens on different DEXes (Sushiswap, Camelot, etc.)
+# - Verify pool contract has getReserves() method
+#
+# Pool 1: Sushiswap WETH/USDC (0.3% fee)
+POOL_1_ADDRESS = "0x905dfCD5649217c42684f23958568e533C711Aa3"  # Sushiswap V2
+# Pool 2: Alternative WETH/USDC pool (0.3% fee) 
+# Note: Use pools from different DEXes for actual arbitrage opportunities
+POOL_2_ADDRESS = "0x905dfCD5649217c42684f23958568e533C711Aa3"  # Same pool for demo (update for real arb)
 
 # Token addresses (WETH and USDC on Arbitrum)
 TOKEN_A_ADDRESS = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"  # WETH
-TOKEN_B_ADDRESS = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"  # USDC
+TOKEN_B_ADDRESS = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"  # USDC (native)
 
 # Token decimals
 TOKEN_A_DECIMALS = 18  # WETH
@@ -517,5 +525,44 @@ def main():
         sys.exit(1)
 
 
+def find_pool_address_helper():
+    """
+    Helper utility to find Uniswap V2-style pool addresses on-chain.
+    
+    Usage: Uncomment and run this function with factory address and token addresses
+    to discover pool addresses programmatically.
+    """
+    # Example: Finding a Sushiswap pool on Arbitrum
+    # 
+    # FACTORY_ADDRESS = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"  # Sushiswap V2 Factory
+    # TOKEN_0 = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"  # WETH
+    # TOKEN_1 = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"  # USDC
+    # 
+    # factory_abi = json.dumps([{
+    #     "constant": True,
+    #     "inputs": [
+    #         {"internalType": "address", "name": "", "type": "address"},
+    #         {"internalType": "address", "name": "", "type": "address"}
+    #     ],
+    #     "name": "getPair",
+    #     "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+    #     "payable": False,
+    #     "stateMutability": "view",
+    #     "type": "function"
+    # }])
+    # 
+    # w3 = get_web3_connection(RPC_URL)
+    # factory = w3.eth.contract(address=Web3.to_checksum_address(FACTORY_ADDRESS), abi=json.loads(factory_abi))
+    # pool_address = factory.functions.getPair(
+    #     Web3.to_checksum_address(TOKEN_0),
+    #     Web3.to_checksum_address(TOKEN_1)
+    # ).call()
+    # print(f"Pool address: {pool_address}")
+    pass
+
+
 if __name__ == "__main__":
     main()
+    
+    # Uncomment to use the pool finder helper:
+    # find_pool_address_helper()
