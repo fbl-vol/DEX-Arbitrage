@@ -13,8 +13,8 @@ import json
 import csv
 import os
 from datetime import datetime
-from decimal import Decimal, getcontext
-from typing import Tuple, Optional
+from decimal import getcontext
+from typing import Tuple
 import sys
 
 try:
@@ -39,23 +39,27 @@ DEMO_MODE = False
 # RPC endpoint (public Arbitrum RPC)
 RPC_URL = "https://arb1.arbitrum.io/rpc"
 
-# Pool addresses - WETH/USDC pairs on Arbitrum
-# These are Sushiswap V2-style pools that both support getReserves()
+# Pool addresses - WETH/USDC.e (bridged USDC) pairs on Arbitrum
+# These are verified Sushiswap V2-style pools that both support getReserves()
 # 
 # Finding V2-style pools with same pair:
 # - Sushiswap Analytics: https://analytics.sushi.com/arbitrum/pairs
 # - Look for pairs with same tokens on different DEXes (Sushiswap, Camelot, etc.)
 # - Verify pool contract has getReserves() method
 #
-# Pool 1: Sushiswap WETH/USDC (0.3% fee)
+# IMPORTANT: These pools use USDC.e (0xFF970A61...), the bridged USDC on Arbitrum
+# Not the native USDC (0xaf88d065...). Arbitrum has two USDC tokens:
+#   - USDC.e (bridged): 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8 (more liquidity in V2 pools)
+#   - USDC (native): 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 (newer, less V2 liquidity)
+#
+# Pool 1: Sushiswap WETH/USDC.e (0.3% fee)
 POOL_1_ADDRESS = "0x905dfCD5649217c42684f23958568e533C711Aa3"  # Sushiswap V2
-# Pool 2: Alternative WETH/USDC pool (0.3% fee) 
-# Note: Use pools from different DEXes for actual arbitrage opportunities
-POOL_2_ADDRESS = "0x905dfCD5649217c42684f23958568e533C711Aa3"  # Same pool for demo (update for real arb)
+# Pool 2: Camelot WETH/USDC.e (0.3% fee)
+POOL_2_ADDRESS = "0x84652bb2539513BAf36e225c930Fdd8eaa63CE27"  # Camelot V2-style
 
-# Token addresses (WETH and USDC on Arbitrum)
+# Token addresses (WETH and USDC.e on Arbitrum)
 TOKEN_A_ADDRESS = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"  # WETH
-TOKEN_B_ADDRESS = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"  # USDC (native)
+TOKEN_B_ADDRESS = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"  # USDC.e (bridged USDC)
 
 # Token decimals
 TOKEN_A_DECIMALS = 18  # WETH
@@ -202,6 +206,7 @@ def calculate_amount_out(
     numerator = amount_in_with_fee * reserve_out
     denominator = (reserve_in * 10000) + amount_in_with_fee
     
+    # Use integer division to match Solidity behavior (rounds down, favors pool)
     amount_out = numerator // denominator
     return amount_out
 
@@ -275,6 +280,8 @@ def simulate_arbitrage(
     gross_profit = gross_profit_raw / (10 ** token_a_decimals)
     
     # Calculate net profit (accounting for gas cost placeholder)
+    # NOTE: This assumes Token A is WETH or equivalent to ETH value.
+    # For other tokens, convert gas cost to Token A terms first.
     net_profit = gross_profit - GAS_COST_ETH
     
     # Calculate profit percentage
@@ -301,6 +308,12 @@ def find_optimal_arbitrage(
     Returns:
         (optimal_input, best_gross_profit, best_net_profit, best_profit_pct, direction)
     """
+    # Validate sweep parameters
+    if min_amount >= max_amount:
+        raise ValueError(f"min_amount ({min_amount}) must be less than max_amount ({max_amount})")
+    if steps <= 0:
+        raise ValueError(f"steps ({steps}) must be greater than 0")
+    
     # Generate input amounts to test
     input_amounts = np.linspace(min_amount, max_amount, steps)
     
@@ -396,7 +409,8 @@ def save_to_csv(
     optimal_input: float,
     gross_profit: float,
     net_profit: float,
-    profit_pct: float
+    profit_pct: float,
+    direction: str
 ):
     """
     Save results to CSV file (optional feature).
@@ -411,6 +425,7 @@ def save_to_csv(
             writer.writerow([
                 'Timestamp',
                 'Block Number',
+                'Direction',
                 'Optimal Input',
                 'Gross Profit',
                 'Net Profit',
@@ -421,6 +436,7 @@ def save_to_csv(
         writer.writerow([
             datetime.now().isoformat(),
             block_number,
+            direction,
             f"{optimal_input:.4f}",
             f"{gross_profit:.6f}",
             f"{net_profit:.6f}",
@@ -445,12 +461,12 @@ def main():
             print("(Set DEMO_MODE = False to use real on-chain data)")
             
             # Mock reserves for demonstration
-            # Pool 1: Price = 200,000/100 = 2000 USDC per WETH
+            # Pool 1: Price = reserveB / reserveA = 200,000 USDC / 100 WETH = 2,000 USDC per WETH
             pool1_reserve_a = int(100 * 10**TOKEN_A_DECIMALS)    # 100 WETH
             pool1_reserve_b = int(200000 * 10**TOKEN_B_DECIMALS)  # 200,000 USDC
             
-            # Pool 2: Price = 220,000/100 = 2200 USDC per WETH (10% higher)
-            # This creates an arbitrage opportunity: buy WETH cheap in Pool 1, sell in Pool 2
+            # Pool 2: Price = reserveB / reserveA = 220,000 USDC / 100 WETH = 2,200 USDC per WETH (10% higher)
+            # This creates an arbitrage opportunity
             pool2_reserve_a = int(100 * 10**TOKEN_A_DECIMALS)     # 100 WETH
             pool2_reserve_b = int(220000 * 10**TOKEN_B_DECIMALS)  # 220,000 USDC
             
@@ -512,7 +528,7 @@ def main():
         
         # Optional: Save to CSV
         if ENABLE_CSV_OUTPUT:
-            save_to_csv(block_number, optimal_input, gross_profit, net_profit, profit_pct)
+            save_to_csv(block_number, optimal_input, gross_profit, net_profit, profit_pct, direction)
             print(f"Results saved to {CSV_OUTPUT_FILE}")
         
     except ConnectionError as e:

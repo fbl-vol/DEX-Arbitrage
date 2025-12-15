@@ -100,9 +100,13 @@ To find Uniswap V2-style pools on Arbitrum with the same token pair:
 - Solidly forks
 
 **Important Notes:**
-- Both pools must have the **same token pair** (e.g., WETH/USDC)
+- Both pools must have the **same token pair** (e.g., WETH/USDC.e)
 - Both pools must implement the **Uniswap V2 interface** (`getReserves()`, `token0()`, `token1()`)
 - For real arbitrage, use pools from **different DEXes** (price differences unlikely on same DEX)
+- **Arbitrum has two USDC tokens:**
+  - USDC.e (bridged): `0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8` - Most V2 liquidity
+  - USDC (native): `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` - Newer, less V2 liquidity
+  - The default config uses USDC.e as it has more V2 pool options
 
 ### Modifying Pair Addresses
 
@@ -134,15 +138,16 @@ DEX ARBITRAGE SIMULATION RESULTS
 Block Number: 12345678
 
 --- Pool Reserves Snapshot ---
-Pool 1 (Buy on this pool):
+Pool 1:
   Token A Reserve: 1,234.56
   Token B Reserve: 2,345,678.90
 
-Pool 2 (Sell on this pool):
+Pool 2:
   Token A Reserve: 1,240.00
   Token B Reserve: 2,350,000.00
 
 --- Optimal Arbitrage Opportunity ---
+Direction: Pool2→Pool1
 Optimal Input Amount (Token A): 5.2500
 Gross Profit (Token A): 0.012345
 Net Profit (after gas, Token A): 0.011345
@@ -197,12 +202,13 @@ Where `fee` is in basis points (e.g., 30 = 0.3%).
 
 ### Arbitrage Strategy
 
-The simulation performs a simple two-step arbitrage:
-1. **Pool 1**: Swap Token A → Token B
-2. **Pool 2**: Swap Token B → Token A
-3. Calculate profit: Final Token A - Initial Token A
+The simulation performs bidirectional arbitrage detection:
+1. **Direction 1**: Pool1 (Token A → Token B) then Pool2 (Token B → Token A)
+2. **Direction 2**: Pool2 (Token A → Token B) then Pool1 (Token B → Token A)
+3. The script automatically selects the more profitable direction
+4. Calculate profit: Final Token A - Initial Token A
 
-The script sweeps through multiple input amounts to find the optimal trade size that maximizes profit.
+The script sweeps through multiple input amounts to find the optimal trade size that maximizes profit for the chosen direction.
 
 ## Extending for Execution
 
